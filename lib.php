@@ -46,32 +46,38 @@ defined('MOODLE_INTERNAL') || die();
  * @param object $etherpadlite An object from the form in mod_form.php
  * @return int The id of the newly inserted etherpadlite record
  */
-function etherpadlite_add_instance(stdClass $etherpadlite, mod_etherpadlite_mod_form $mform = null) {
+function etherpadlite_add_instance(stdClass $etherpadlite, mod_etherpadlite_mod_form $mform = null)
+{
 
     global $DB;
     $config = get_config("etherpadlite");
 
-    $instance = new \mod_etherpadlite\client($config->apikey, $config->url.'api');
+    $instance = new \mod_etherpadlite\client($config->apikey, $config->url . 'api');
 
-    try {
-        $groupid = $instance->create_group();
-    } catch (Exception $e) {
-        // The group already exists or something else went wrong.
-        throw $e;
-    }
-
-    try {
-        $padid = $instance->create_group_pad($groupid, $config->padname);
-    } catch (Exception $e) {
-        // The pad already exists or something else went wrong.
-        throw $e;
-    }
-
-    $etherpadlite->uri = $padid;
+    $groups = $DB->get_records('groups', ['courseid' => $etherpadlite->course]);
 
     $etherpadlite->timecreated = time();
+    $etherpadid = $DB->insert_record('etherpadlite', $etherpadlite);
 
-    return $DB->insert_record('etherpadlite', $etherpadlite);
+    foreach ($groups as $group) {
+        $pad = new stdClass();
+        $pad->etherpadliteid = $etherpadid;
+        $pad->groupid = $group->id;
+
+        try {
+            $groupid = $instance->create_group_if_not_exists_for($group->id);
+            $uri = $instance->create_group_pad($groupid, $config->padname);
+            var_dump($group);
+            die();
+            $pad->uri = $uri;
+            $pad->timecreated = time();
+            $DB->insert_record('etherpadlite_pads', $pad);
+        } catch (Exception $e) {
+            throw $e;
+        }
+    }
+
+    return $etherpadid;
 }
 
 
@@ -83,7 +89,8 @@ function etherpadlite_add_instance(stdClass $etherpadlite, mod_etherpadlite_mod_
  * @param object $etherpadlite An object from the form in mod_form.php
  * @return boolean Success/Fail
  */
-function etherpadlite_update_instance(stdClass $etherpadlite, mod_etherpadlite_mod_form $mform = null) {
+function etherpadlite_update_instance(stdClass $etherpadlite, mod_etherpadlite_mod_form $mform = null)
+{
     global $DB;
 
     $etherpadlite->timemodified = time();
@@ -106,11 +113,12 @@ function etherpadlite_update_instance(stdClass $etherpadlite, mod_etherpadlite_m
  * @param int $id Id of the module instance
  * @return boolean Success/Failure
  */
-function etherpadlite_delete_instance($id) {
+function etherpadlite_delete_instance($id)
+{
 
     global $DB;
 
-    if (! $etherpadlite = $DB->get_record('etherpadlite', array('id' => $id))) {
+    if (!$etherpadlite = $DB->get_record('etherpadlite', array('id' => $id))) {
         return false;
     }
 
@@ -119,7 +127,7 @@ function etherpadlite_delete_instance($id) {
     // Delete any dependent records here.
 
     $config = get_config("etherpadlite");
-    $instance = new \mod_etherpadlite\client($config->apikey, $config->url.'api');
+    $instance = new \mod_etherpadlite\client($config->apikey, $config->url . 'api');
 
     $padid = $etherpadlite->uri;
     $groupid = explode('$', $padid);
@@ -128,7 +136,7 @@ function etherpadlite_delete_instance($id) {
     $instance->delete_pad($padid);
     $instance->delete_group($groupid);
 
-    if (! $DB->delete_records('etherpadlite', array('id' => $etherpadlite->id))) {
+    if (!$DB->delete_records('etherpadlite', array('id' => $etherpadlite->id))) {
         $result = false;
     }
 
@@ -146,7 +154,8 @@ function etherpadlite_delete_instance($id) {
  * @return null
  * @todo Finish documenting this function
  */
-function etherpadlite_user_outline($course, $user, $mod, $etherpadlite) {
+function etherpadlite_user_outline($course, $user, $mod, $etherpadlite)
+{
     return $return;
 }
 
@@ -158,7 +167,8 @@ function etherpadlite_user_outline($course, $user, $mod, $etherpadlite) {
  * @return boolean
  * @todo Finish documenting this function
  */
-function etherpadlite_user_complete($course, $user, $mod, $etherpadlite) {
+function etherpadlite_user_complete($course, $user, $mod, $etherpadlite)
+{
     return true;
 }
 
@@ -171,7 +181,8 @@ function etherpadlite_user_complete($course, $user, $mod, $etherpadlite) {
  * @return boolean
  * @todo Finish documenting this function
  */
-function etherpadlite_print_recent_activity($course, $isteacher, $timestart) {
+function etherpadlite_print_recent_activity($course, $isteacher, $timestart)
+{
     return false;  // True if anything was printed, otherwise false.
 }
 
@@ -184,7 +195,8 @@ function etherpadlite_print_recent_activity($course, $isteacher, $timestart) {
  * @return boolean
  * @todo Finish documenting this function
  **/
-function etherpadlite_cron () {
+function etherpadlite_cron()
+{
     return true;
 }
 
@@ -198,7 +210,8 @@ function etherpadlite_cron () {
  * @param int $etherpadliteid ID of an instance of this module
  * @return mixed boolean/array of students
  */
-function etherpadlite_get_participants($etherpadliteid) {
+function etherpadlite_get_participants($etherpadliteid)
+{
     return false;
 }
 
@@ -209,7 +222,8 @@ function etherpadlite_get_participants($etherpadliteid) {
  *
  * @return boolean true if success, false on error
  */
-function etherpadlite_install() {
+function etherpadlite_install()
+{
     return true;
 }
 
@@ -220,7 +234,8 @@ function etherpadlite_install() {
  *
  * @return boolean true if success, false on error
  */
-function etherpadlite_uninstall() {
+function etherpadlite_uninstall()
+{
     return true;
 }
 
@@ -228,13 +243,12 @@ function etherpadlite_uninstall() {
  * @param string $feature FEATURE_xx constant for requested feature
  * @return mixed True if module supports feature, null if doesn't know
  */
-function etherpadlite_supports($feature) {
-    switch($feature) {
+function etherpadlite_supports($feature)
+{
+    switch ($feature) {
         case FEATURE_GROUPS:
-            return false;
+            return true;
         case FEATURE_GROUPINGS:
-            return false;
-        case FEATURE_GROUPMEMBERSONLY:
             return false;
         case FEATURE_MOD_INTRO:
             return true;
@@ -262,7 +276,8 @@ function etherpadlite_supports($feature) {
 // Remember (see note in first lines) that, if this section grows, it's HIGHLY
 // recommended to move all funcions below to a new "localib.php" file.
 // A funtion to generate a random name if something doesn't already exist.
-function etherpadlite_gen_random_string() {
+function etherpadlite_gen_random_string()
+{
     $length = 5;
     $characters = "0123456789";
     $string = "";
@@ -272,7 +287,8 @@ function etherpadlite_gen_random_string() {
     return $string;
 }
 
-function etherpadlite_guestsallowed($e) {
+function etherpadlite_guestsallowed($e)
+{
     global $CFG;
 
     if (get_config("etherpadlite", "adminguests") == 1) {
