@@ -66,15 +66,19 @@ function etherpadlite_add_instance(stdClass $etherpadlite, mod_etherpadlite_mod_
 
         try {
             $groupid = $instance->create_group_if_not_exists_for($group->id);
-            $uri = $instance->create_group_pad($groupid, $config->padname);
-            var_dump($group);
-            die();
-            $pad->uri = $uri;
-            $pad->timecreated = time();
-            $DB->insert_record('etherpadlite_pads', $pad);
         } catch (Exception $e) {
             throw $e;
         }
+
+        try {
+            $uri = $instance->create_group_pad($groupid, $config->padname);
+        } catch (Exception $e) {
+            throw $e;
+        }
+
+        $pad->uri = $uri;
+        $pad->timecreated = time();
+        $DB->insert_record('etherpadlite_pads', $pad);
     }
 
     return $etherpadid;

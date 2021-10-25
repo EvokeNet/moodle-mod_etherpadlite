@@ -24,8 +24,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-require_once(dirname(dirname(dirname(__FILE__))).'/config.php');
-require_once(dirname(__FILE__).'/lib.php');
+require_once(dirname(dirname(dirname(__FILE__))) . '/config.php');
+require_once(dirname(__FILE__) . '/lib.php');
 
 $id = optional_param('id', 0, PARAM_INT); // The course_module id, or
 $a = optional_param('a', 0, PARAM_INT);  // etherpadlite instance id.
@@ -51,31 +51,38 @@ if ($config->ssl) {
     // The https_required doesn't work, if $CFG->loginhttps doesn't work.
     $CFG->httpswwwroot = str_replace('http:', 'https:', $CFG->wwwroot);
     if (!isset($_SERVER['HTTPS'])) {
-        $url = $CFG->httpswwwroot.'/mod/etherpadlite/view.php?id='.$id;
+        $url = $CFG->httpswwwroot . '/mod/etherpadlite/view.php?id=' . $id;
 
         redirect($url);
     }
 }
 
+$groupsutil = new \mod_etherpadlite\util\groups();
+$usergroup = $groupsutil->get_user_group($course->id);
+
+if ($usergroup) {
+    $pad = $DB->get_record('etherpadlite_pads', ['etherpadliteid' => $etherpadlite->id, 'groupid' => $usergroup->id]);
+}
+
 // START of Initialise the session for the Author.
 // Set vars.
 $domain = $config->url;
-$padid = $etherpadlite->uri;
+$padid = $pad->uri;
 $fullurl = 'domain.tld';
 
 // Make a new intance from the etherpadlite client.
-$instance = new \mod_etherpadlite\client($config->apikey, $domain.'api');
+$instance = new \mod_etherpadlite\client($config->apikey, $domain . 'api');
 
 // Fullurl generation.
 if (isguestuser() && !etherpadlite_guestsallowed($etherpadlite)) {
     try {
         $readonlyid = $instance->get_readonly_id($padid);
-        $fullurl = $domain.'ro/'.$readonlyid;
+        $fullurl = $domain . 'ro/' . $readonlyid;
     } catch (Exception $e) {
         throw $e;
     }
 } else {
-    $fullurl = $domain.'p/'.$padid;
+    $fullurl = $domain . 'p/' . $padid;
 }
 
 // Get the groupID.
@@ -85,7 +92,7 @@ $groupid = $groupid[0];
 // Create author if not exists for logged in user (with full name as it is obtained from Moodle core library).
 try {
     if (isguestuser() && etherpadlite_guestsallowed($etherpadlite)) {
-        $authorid = $instance->create_author('Guest-'.etherpadlite_gen_random_string());
+        $authorid = $instance->create_author('Guest-' . etherpadlite_gen_random_string());
     } else {
         $authorid = $instance->create_author_if_not_exists_for($USER->id, fullname($USER));
     }
@@ -121,7 +128,7 @@ $event->add_record_snapshot('course', $course);
 $event->add_record_snapshot('etherpadlite', $etherpadlite);
 $event->trigger();
 
-$PAGE->set_title(get_string('modulename', 'mod_etherpadlite').': '.format_string($etherpadlite->name));
+$PAGE->set_title(get_string('modulename', 'mod_etherpadlite') . ': ' . format_string($etherpadlite->name));
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
 

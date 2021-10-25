@@ -51,6 +51,18 @@
         </div>
     </div>
 {{/summary}}
+
+{{#hasgroup}}
+    <h3>{{#str}}myteam, mod_etherpadlite{{/str}}</h3>
+    <div class="myteammembers">
+        {{#groupmembers}}
+            <div class="groupmember">
+                <img src="{{{userpicture}}}" alt="{{{userfullname}}}"> {{{fullname}}}
+            </div>
+        {{/groupmembers}}
+    </div>
+{{/hasgroup}}
+
 {{#legacy}}
     {{> mod_etherpadlite/iframe_legacy}}
 {{/legacy}}
