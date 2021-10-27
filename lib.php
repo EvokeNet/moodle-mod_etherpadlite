@@ -65,7 +65,7 @@ function etherpadlite_add_instance(stdClass $etherpadlite, mod_etherpadlite_mod_
         $pad->groupid = $group->id;
 
         try {
-            $groupid = $instance->create_group_if_not_exists_for($group->id);
+            $groupid = $instance->create_group();
         } catch (Exception $e) {
             throw $e;
         }
