@@ -52,33 +52,52 @@ function etherpadlite_add_instance(stdClass $etherpadlite, mod_etherpadlite_mod_
     global $DB;
     $config = get_config("etherpadlite");
 
-    $instance = new \mod_etherpadlite\client($config->apikey, $config->url . 'api');
-
-    $groups = $DB->get_records('groups', ['courseid' => $etherpadlite->course]);
+    $client = new \mod_etherpadlite\client($config->apikey, $config->url . 'api');
 
     $etherpadlite->timecreated = time();
-    $etherpadid = $DB->insert_record('etherpadlite', $etherpadlite);
 
-    foreach ($groups as $group) {
-        $pad = new stdClass();
-        $pad->etherpadliteid = $etherpadid;
-        $pad->groupid = $group->id;
+    // If etherpad is set to be created in a group, create one pad per group
+    if ($etherpadlite->groupmode == 1) {
+        $groups = $DB->get_records('groups', ['courseid' => $etherpadlite->course]);
+        $etherpadid = $DB->insert_record('etherpadlite', $etherpadlite);
 
+        foreach ($groups as $group) {
+            $pad = new stdClass();
+            $pad->etherpadliteid = $etherpadid;
+            $pad->groupid = $group->id;
+
+            try {
+                $groupid = $client->create_group();
+            } catch (Exception $e) {
+                throw $e;
+            }
+
+            try {
+                $uri = $client->create_group_pad($groupid, $config->padname);
+            } catch (Exception $e) {
+                throw $e;
+            }
+
+            $pad->uri = $uri;
+            $pad->timecreated = time();
+            $DB->insert_record('etherpadlite_pads', $pad);
+        }
+
+    // Otherwise, create a single pad
+    } else {
         try {
-            $groupid = $instance->create_group();
+            $groupid = $client->create_group();
         } catch (Exception $e) {
             throw $e;
         }
 
         try {
-            $uri = $instance->create_group_pad($groupid, $config->padname);
+            $uri = $client->create_group_pad($groupid, $config->padname);
         } catch (Exception $e) {
             throw $e;
         }
-
-        $pad->uri = $uri;
-        $pad->timecreated = time();
-        $DB->insert_record('etherpadlite_pads', $pad);
+        $etherpadlite->uri = $uri;
+        $etherpadid = $DB->insert_record('etherpadlite', $etherpadlite);
     }
 
     return $etherpadid;
@@ -96,13 +115,42 @@ function etherpadlite_add_instance(stdClass $etherpadlite, mod_etherpadlite_mod_
 function etherpadlite_update_instance(stdClass $etherpadlite, mod_etherpadlite_mod_form $mform = null)
 {
     global $DB;
+    $config = get_config("etherpadlite");
 
     $etherpadlite->timemodified = time();
     $etherpadlite->id = $etherpadlite->instance;
 
-    // You may have to add extra stuff in here.
-    if (empty($etherpadlite->guestsallowed)) {
-        $etherpadlite->guestsallowed = 0;
+    $client = new \mod_etherpadlite\client($config->apikey, $config->url . 'api');
+
+    // If etherpad is set to be created in a group, create one pad per group
+    if ($etherpadlite->groupmode == 1) {
+        $groups = $DB->get_records('groups', ['courseid' => $etherpadlite->course]);
+
+        foreach ($groups as $group) {
+            $groupcount = $DB->count_records('etherpadlite_pads', ['groupid' => $group->id]);
+
+            if ($groupcount == 0) {
+                $pad = new stdClass();
+                $pad->etherpadliteid = $etherpadlite->id;
+                $pad->groupid = $group->id;
+
+                try {
+                    $groupid = $client->create_group();
+                } catch (Exception $e) {
+                    throw $e;
+                }
+
+                try {
+                    $uri = $client->create_group_pad($groupid, $config->padname);
+                } catch (Exception $e) {
+                    throw $e;
+                }
+
+                $pad->uri = $uri;
+                $pad->timecreated = time();
+                $DB->insert_record('etherpadlite_pads', $pad);
+            }
+        }
     }
 
     return $DB->update_record('etherpadlite', $etherpadlite);
